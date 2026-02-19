@@ -6,6 +6,7 @@ interface CsvUserRow {
   email: string;
   student_id?: string;
   role?: string;
+  school_id?: string; // השדה החדש ששלחנו מה-Frontend
 }
 
 interface ImportResult {
@@ -16,7 +17,7 @@ interface ImportResult {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify caller is secretariat
+    // 1. אימות זהות המזכירות
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -26,12 +27,16 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, school_id') // הוספת שליפת המוסד לביטחון
       .eq('id', user.id)
       .single();
 
     if (!profile || profile.role !== 'secretariat') {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 });
+    }
+
+    if (!profile.school_id) {
+      return NextResponse.json({ error: 'למשתמש המבצע אין שיוך מוסדי' }, { status: 400 });
     }
 
     const { users }: { users: CsvUserRow[] } = await request.json();
@@ -43,6 +48,7 @@ export async function POST(request: NextRequest) {
     const adminClient = await createAdminClient();
     const results: ImportResult[] = [];
 
+    // 2. לולאת ייבוא הסטודנטים
     for (const row of users) {
       if (!row.email || !row.full_name) {
         results.push({ email: row.email ?? '', success: false, error: 'חסרים שדות חובה' });
@@ -52,6 +58,7 @@ export async function POST(request: NextRequest) {
       const role = row.role ?? 'student';
       const tempPassword = Math.random().toString(36).slice(-10) + 'A1!';
 
+      // יצירת המשתמש ב-Auth עם שיוך מוסדי
       const { data: newUser, error } = await adminClient.auth.admin.createUser({
         email: row.email,
         password: tempPassword,
@@ -61,6 +68,7 @@ export async function POST(request: NextRequest) {
           role,
           status: 'active',
           student_id: row.student_id ?? null,
+          school_id: profile.school_id, // שימוש במוסד של המזכירה
         },
       });
 
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Upsert profile
+      // 3. יצירת הפרופיל ב-Database עם ה-school_id
       if (newUser.user) {
         await adminClient
           .from('profiles')
@@ -80,6 +88,7 @@ export async function POST(request: NextRequest) {
             role,
             status: 'active',
             student_id: row.student_id ?? null,
+            school_id: profile.school_id, // שיוך קבוע בטבלת הפרופילים
           });
       }
 

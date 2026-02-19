@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client'; // הוספת ייבוא הסופאבייס
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,23 +27,49 @@ export default function UserCreateModal({ onSuccess }: UserCreateModalProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    const supabase = createClient();
 
-    const res = await fetch('/api/admin/users/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, role, studentId: studentId || null, password }),
-    });
+    try {
+      // 1. שליפת המוסד של המשתמש המבצע את הפעולה (המזכירות)
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
 
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error('שגיאה ביצירת משתמש: ' + (data.error ?? 'שגיאה לא ידועה'));
-    } else {
-      toast.success('המשתמש נוצר בהצלחה ואימייל הוזמנה נשלח');
-      setOpen(false);
-      setFullName(''); setEmail(''); setStudentId(''); setPassword('');
-      onSuccess();
+      if (!profile?.school_id) {
+        throw new Error('לא נמצא שיוך מוסדי למשתמש המחובר');
+      }
+
+      // 2. שליחת המידע יחד עם ה-schoolId ל-API
+      const res = await fetch('/api/admin/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          fullName, 
+          email, 
+          role, 
+          studentId: studentId || null, 
+          password,
+          schoolId: profile.school_id // הזרקת המזהה של בית ספר פדרמן
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error('שגיאה ביצירת משתמש: ' + (data.error ?? 'שגיאה לא ידועה'));
+      } else {
+        toast.success('המשתמש נוצר בהצלחה ומשויך למוסד הרלוונטי');
+        setOpen(false);
+        setFullName(''); setEmail(''); setStudentId(''); setPassword('');
+        onSuccess();
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'שגיאה בתהליך יצירת המשתמש');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -50,12 +77,12 @@ export default function UserCreateModal({ onSuccess }: UserCreateModalProps) {
       <DialogTrigger asChild>
         <Button variant="outline">
           <UserPlus className="ml-2 h-4 w-4" />
-          הוסף משתמש
+          הוסף משתמש ידנית
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
-          <DialogTitle>יצירת משתמש חדש</DialogTitle>
+          <DialogTitle>יצירת משתמש חדש בבית ספר פדרמן</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">

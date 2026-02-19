@@ -28,20 +28,42 @@ export default function SemesterForm({ onSuccess, editSemester }: SemesterFormPr
     setLoading(true);
     const supabase = createClient();
 
-    const payload = { name, start_date: startDate, end_date: endDate, is_active: isActive };
+    try {
+      // 1. שליפת המוסד של המשתמש המחובר
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
 
-    const { error } = editSemester
-      ? await supabase.from('semesters').update(payload).eq('id', editSemester.id)
-      : await supabase.from('semesters').insert(payload);
+      if (!profile?.school_id) {
+        throw new Error('לא נמצא שיוך מוסדי למשתמש המחובר');
+      }
 
-    if (error) {
-      toast.error('שגיאה בשמירת הסמסטר: ' + error.message);
-    } else {
-      toast.success(editSemester ? 'הסמסטר עודכן' : 'הסמסטר נוצר בהצלחה');
+      // 2. הכנת הנתונים כולל ה-school_id
+      const payload: any = { 
+        name, 
+        start_date: startDate, 
+        end_date: endDate, 
+        is_active: isActive,
+        school_id: profile.school_id // הזרקת זהות המוסד
+      };
+
+      const { error } = editSemester
+        ? await supabase.from('semesters').update(payload).eq('id', editSemester.id)
+        : await supabase.from('semesters').insert(payload);
+
+      if (error) throw error;
+
+      toast.success(editSemester ? 'הסמסטר עודכן' : 'הסמסטר נוצר בהצלחה בבית ספר פדרמן');
       setOpen(false);
       onSuccess();
+    } catch (error: any) {
+      toast.error('שגיאה בשמירת הסמסטר: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -54,7 +76,7 @@ export default function SemesterForm({ onSuccess, editSemester }: SemesterFormPr
       </DialogTrigger>
       <DialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
-          <DialogTitle>{editSemester ? 'עריכת סמסטר' : 'יצירת סמסטר חדש'}</DialogTitle>
+          <DialogTitle>{editSemester ? 'עריכת סמסטר' : 'יצירת סמסטר חדש לפדרמן'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
@@ -102,7 +124,7 @@ export default function SemesterForm({ onSuccess, editSemester }: SemesterFormPr
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              שמור
+              שמור סמסטר
             </Button>
           </div>
         </form>

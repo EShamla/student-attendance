@@ -38,11 +38,29 @@ export default function LessonForm({ onSuccess, editLesson }: LessonFormProps) {
   useEffect(() => {
     if (!open) return;
     const supabase = createClient();
-    supabase
-      .from('courses')
-      .select('*, semesters(name)')
-      .order('name')
-      .then(({ data }) => setCourses(data ?? []));
+    
+    async function fetchCourses() {
+      // 1. קבלת המוסד של המשתמש המחובר
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profile?.school_id) {
+        // 2. שליפת קורסים השייכים אך ורק למוסד הנוכחי (פדרמן)
+        const { data } = await supabase
+          .from('courses')
+          .select('*, semesters(name)')
+          .eq('school_id', profile.school_id)
+          .order('name');
+        
+        setCourses(data ?? []);
+      }
+    }
+
+    fetchCourses();
   }, [open]);
 
   const handleMapClick = useCallback((latitude: number, longitude: number) => {
@@ -70,27 +88,41 @@ export default function LessonForm({ onSuccess, editLesson }: LessonFormProps) {
     setLoading(true);
     const supabase = createClient();
 
-    const payload = {
-      course_id: courseId,
-      scheduled_at: new Date(scheduledAt).toISOString(),
-      duration_minutes: parseInt(duration),
-      location_name: locationName,
-      location_lat: lat ? parseFloat(lat) : null,
-      location_lng: lng ? parseFloat(lng) : null,
-    };
+    try {
+      // 3. קבלת ה-school_id לצורך יצירת השיעור
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
 
-    const { error } = editLesson
-      ? await supabase.from('lessons').update(payload).eq('id', editLesson.id)
-      : await supabase.from('lessons').insert(payload);
+      if (!profile?.school_id) throw new Error('לא נמצא שיוך מוסדי');
 
-    if (error) {
-      toast.error('שגיאה בשמירת השיעור: ' + error.message);
-    } else {
-      toast.success(editLesson ? 'השיעור עודכן' : 'השיעור נוצר בהצלחה');
+      const payload: any = {
+        course_id: courseId,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        duration_minutes: parseInt(duration),
+        location_name: locationName,
+        location_lat: lat ? parseFloat(lat) : null,
+        location_lng: lng ? parseFloat(lng) : null,
+        school_id: profile.school_id // הזרקת המוסד לכל שיעור חדש
+      };
+
+      const { error } = editLesson
+        ? await supabase.from('lessons').update(payload).eq('id', editLesson.id)
+        : await supabase.from('lessons').insert(payload);
+
+      if (error) throw error;
+
+      toast.success(editLesson ? 'השיעור עודכן' : 'השיעור נוצר בהצלחה בבית ספר פדרמן');
       setOpen(false);
       onSuccess();
+    } catch (error: any) {
+      toast.error('שגיאה בשמירת השיעור: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const mapCenter: [number, number] = lat && lng
@@ -151,14 +183,13 @@ export default function LessonForm({ onSuccess, editLesson }: LessonFormProps) {
           <div className="space-y-2">
             <Label>שם המיקום</Label>
             <Input
-              placeholder="בניין א׳, חדר 201"
+              placeholder="בניין פדרמן, אולם 1"
               value={locationName}
               onChange={(e) => setLocationName(e.target.value)}
               required
             />
           </div>
 
-          {/* GPS picker */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>מיקום GPS של הכיתה</Label>
@@ -196,7 +227,7 @@ export default function LessonForm({ onSuccess, editLesson }: LessonFormProps) {
             </div>
             <p className="text-xs text-gray-500 flex items-center gap-1">
               <MapPin className="h-3 w-3" />
-              לחץ על המפה לסימון מיקום הכיתה
+              לחץ על המפה לסימון מיקום הכיתה המדויק
             </p>
           </div>
 
@@ -204,7 +235,7 @@ export default function LessonForm({ onSuccess, editLesson }: LessonFormProps) {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              שמור
+              שמור שיעור
             </Button>
           </div>
         </form>

@@ -23,6 +23,7 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
   const [distance, setDistance] = useState<number | null>(null);
 
   async function handleCheckIn() {
+    // 1. בדיקה ששיעור משויך למיקום GPS
     if (!lesson.location_lat || !lesson.location_lng) {
       toast.error('לשיעור זה לא הוגדר מיקום GPS');
       return;
@@ -41,6 +42,7 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
       return;
     }
 
+    // 2. חישוב מרחק ואימות רדיוס (50 מטר)
     const dist = haversineDistance(
       coords.latitude,
       coords.longitude,
@@ -63,7 +65,7 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
       return;
     }
 
-    // Submit check-in
+    // 3. שליחת הנוכחות עם שיוך מוסדי
     setState('submitting');
 
     const res = await fetch('/api/attendance/checkin', {
@@ -73,6 +75,8 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
         lessonId: lesson.id,
         latitude: coords.latitude,
         longitude: coords.longitude,
+        // הזרקת מזהה המוסד מהשיעור לרשומת הנוכחות
+        schoolId: (lesson as any).school_id 
       }),
     });
 
@@ -85,7 +89,7 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
     }
 
     setState('success');
-    toast.success('נוכחות נרשמה בהצלחה! ✓');
+    toast.success('נוכחות נרשמה בהצלחה בבית ספר פדרמן! ✓');
     setTimeout(() => router.push('/student/dashboard'), 2000);
   }
 
@@ -111,7 +115,7 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
             <p className="text-sm text-red-600 mt-1">{errorMessage}</p>
             {distance != null && distance > 50 && (
               <p className="text-xs text-red-400 mt-2">
-                טיפ: וודא שה-GPS מופעל ושאתה בתוך הבניין
+                טיפ: וודא שה-GPS מופעל ושאתה בתוך בניין פדרמן
               </p>
             )}
           </div>
@@ -121,31 +125,31 @@ export default function CheckInButton({ lesson }: CheckInButtonProps) {
       <Button
         onClick={handleCheckIn}
         disabled={state === 'locating' || state === 'submitting'}
-        className="w-full h-16 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg"
+        className="w-full h-16 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg transition-all active:scale-95"
       >
         {state === 'locating' && (
           <>
             <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-            מאתר מיקום...
+            מאתר מיקום GPS...
           </>
         )}
         {state === 'submitting' && (
           <>
             <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-            שולח...
+            רושם נוכחות...
           </>
         )}
         {(state === 'idle' || state === 'error') && (
           <>
             <MapPin className="ml-2 h-5 w-5" />
-            רישום נוכחות
+            ביצוע נוכחות (פדרמן)
           </>
         )}
       </Button>
 
       {(state === 'idle' || state === 'error') && (
-        <p className="text-center text-xs text-gray-400">
-          לחץ לאישור נוכחות עם אימות GPS
+        <p className="text-center text-xs text-gray-400 italic">
+          המיקום מאומת מול רדיוס הכיתה (50 מטר)
         </p>
       )}
     </div>

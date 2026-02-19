@@ -30,13 +30,38 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
   useEffect(() => {
     if (!open) return;
     const supabase = createClient();
-    Promise.all([
-      supabase.from('semesters').select('*').order('start_date', { ascending: false }),
-      supabase.from('profiles').select('*').eq('role', 'lecturer').eq('status', 'active').order('full_name'),
-    ]).then(([{ data: sems }, { data: lects }]) => {
-      setSemesters(sems ?? []);
-      setLecturers(lects ?? []);
-    });
+    
+    async function fetchData() {
+      // 1. קבלת המוסד של המשתמש המחובר לסינון הרשימות
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profile?.school_id) {
+        const [sems, lects] = await Promise.all([
+          // סינון סמסטרים לפי בית ספר
+          supabase.from('semesters')
+            .select('*')
+            .eq('school_id', profile.school_id)
+            .order('start_date', { ascending: false }),
+          // סינון מרצים לפי בית ספר
+          supabase.from('profiles')
+            .select('*')
+            .eq('school_id', profile.school_id)
+            .eq('role', 'lecturer')
+            .eq('status', 'active')
+            .order('full_name'),
+        ]);
+        
+        setSemesters(sems.data ?? []);
+        setLecturers(lects.data ?? []);
+      }
+    }
+
+    fetchData();
   }, [open]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -44,26 +69,40 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
     setLoading(true);
     const supabase = createClient();
 
-    const payload = {
-      name,
-      code,
-      semester_id: semesterId,
-      lecturer_id: lecturerId || null,
-      max_students: parseInt(maxStudents),
-    };
+    try {
+      // 2. קבלת ה-school_id לצורך יצירת הקורס
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
 
-    const { error } = editCourse
-      ? await supabase.from('courses').update(payload).eq('id', editCourse.id)
-      : await supabase.from('courses').insert(payload);
+      if (!profile?.school_id) throw new Error('לא נמצא שיוך מוסדי');
 
-    if (error) {
-      toast.error('שגיאה בשמירת הקורס: ' + error.message);
-    } else {
-      toast.success(editCourse ? 'הקורס עודכן' : 'הקורס נוצר בהצלחה');
+      const payload: any = {
+        name,
+        code,
+        semester_id: semesterId,
+        lecturer_id: lecturerId || null,
+        max_students: parseInt(maxStudents),
+        school_id: profile.school_id // הזרקת המוסד לכל קורס חדש
+      };
+
+      const { error } = editCourse
+        ? await supabase.from('courses').update(payload).eq('id', editCourse.id)
+        : await supabase.from('courses').insert(payload);
+
+      if (error) throw error;
+
+      toast.success(editCourse ? 'הקורס עודכן' : 'הקורס נוצר בהצלחה בבית ספר פדרמן');
       setOpen(false);
       onSuccess();
+    } catch (error: any) {
+      toast.error('שגיאה בשמירת הקורס: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -83,7 +122,7 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
             <div className="space-y-2">
               <Label>שם הקורס</Label>
               <Input
-                placeholder="אלגברה לינארית"
+                placeholder="מבוא למדיניות ציבורית"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -92,7 +131,7 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
             <div className="space-y-2">
               <Label>קוד קורס</Label>
               <Input
-                placeholder="MATH101"
+                placeholder="FED101"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 required

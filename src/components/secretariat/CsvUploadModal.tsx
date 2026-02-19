@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 import { Upload, Loader2, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { createClient } from '@/lib/supabase/client'; // וודא שהנתיב ללקוח הסופאבייס נכון
 
 interface CsvRow {
   full_name: string;
@@ -29,15 +30,19 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<CsvRow[]>([]);
+  const [fullData, setFullData] = useState<CsvRow[]>([]); // מדינה חדשה לשמירת כל הנתונים
   const [results, setResults] = useState<ImportResult[]>([]);
   const [dragging, setDragging] = useState(false);
+  
+  const supabase = createClient();
 
   const parseFile = useCallback((file: File) => {
     Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
-        setPreview(result.data.slice(0, 5));
+        setFullData(result.data); // שומר את כל הסטודנטים
+        setPreview(result.data.slice(0, 5)); // מציג רק 5 לתצוגה מקדימה
         setResults([]);
       },
       error: () => toast.error('שגיאה בקריאת הקובץ'),
@@ -61,28 +66,52 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
   }
 
   async function handleImport() {
-    if (preview.length === 0) {
+    if (fullData.length === 0) {
       toast.error('אין נתונים לייבא');
       return;
     }
     setLoading(true);
 
-    const res = await fetch('/api/admin/users/csv', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ users: preview }),
-    });
+    try {
+      // 1. שליפת ה-school_id של המשתמש המחובר (לירון/אביבה)
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user?.id)
+        .single();
 
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error('שגיאה בייבוא: ' + (data.error ?? 'שגיאה לא ידועה'));
-    } else {
-      setResults(data.results ?? []);
-      const successCount = (data.results as ImportResult[]).filter((r) => r.success).length;
-      toast.success(`${successCount} משתמשים יובאו בהצלחה`);
-      onSuccess();
+      if (profileError || !profile?.school_id) {
+        throw new Error('לא נמצא שיוך מוסדי למשתמש המחובר');
+      }
+
+      // 2. הזרקת ה-school_id לכל הסטודנטים לפני השליחה
+      const usersWithSchool = fullData.map(user => ({
+        ...user,
+        school_id: profile.school_id,
+        role: user.role || 'student'
+      }));
+
+      const res = await fetch('/api/admin/users/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: usersWithSchool }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error('שגיאה בייבוא: ' + (data.error ?? 'שגיאה לא ידועה'));
+      } else {
+        setResults(data.results ?? []);
+        const successCount = (data.results as ImportResult[]).filter((r) => r.success).length;
+        toast.success(`${successCount} משתמשים יובאו בהצלחה לבית ספר פדרמן`);
+        onSuccess();
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'שגיאה לא צפויה בתהליך');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -98,14 +127,12 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
           <DialogTitle>ייבוא סטודנטים מ-CSV</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-4">
-          {/* Format hint */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
             <p className="font-medium mb-1">פורמט הקובץ הנדרש (כותרות):</p>
             <code dir="ltr" className="block">full_name,email,student_id,role</code>
-            <p className="mt-1 text-xs">role: student / lecturer / secretariat (ברירת מחדל: student)</p>
+            <p className="mt-1 text-xs">המערכת תשייך אוטומטית את הסטודנטים למוסד המחובר</p>
           </div>
 
-          {/* Drop zone */}
           <div
             onDrop={handleDrop}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -123,10 +150,9 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
             </label>
           </div>
 
-          {/* Preview */}
           {preview.length > 0 && (
             <div>
-              <p className="font-medium text-sm mb-2">תצוגה מקדימה (5 שורות ראשונות):</p>
+              <p className="font-medium text-sm mb-2">תצוגה מקדימה (5 שורות מתוך {fullData.length}):</p>
               <div className="overflow-x-auto border rounded-lg">
                 <table className="text-sm w-full">
                   <thead className="bg-gray-50">
@@ -154,9 +180,8 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
             </div>
           )}
 
-          {/* Results */}
           {results.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-40 overflow-y-auto border p-2 rounded">
               <p className="font-medium text-sm">תוצאות ייבוא:</p>
               {results.map((r, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
@@ -173,9 +198,9 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
 
           <div className="flex gap-3 justify-end">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>סגור</Button>
-            <Button onClick={handleImport} disabled={loading || preview.length === 0}>
+            <Button onClick={handleImport} disabled={loading || fullData.length === 0}>
               {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              ייבא {preview.length > 0 ? `${preview.length} משתמשים` : ''}
+              ייבא {fullData.length > 0 ? `${fullData.length} משתמשים` : ''}
             </Button>
           </div>
         </div>

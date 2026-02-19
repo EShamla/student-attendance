@@ -11,10 +11,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'לא מחובר' }, { status: 401 });
     }
 
-    // Verify user is an active student
+    // 1. שליפת הפרופיל כולל ה-school_id של הסטודנט
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, status')
+      .select('role, status, school_id')
       .eq('id', user.id)
       .single();
 
@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'נתונים חסרים' }, { status: 400 });
     }
 
-    // Fetch lesson
+    // 2. שליפת השיעור כולל ה-school_id שלו
     const { data: lesson, error: lessonError } = await supabase
       .from('lessons')
-      .select('*, courses(id)')
+      .select('*, courses(id), school_id')
       .eq('id', lessonId)
       .single();
 
@@ -39,7 +39,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'השיעור לא נמצא' }, { status: 404 });
     }
 
-    // Validate lesson is currently active
+    // 3. אימות שיוך מוסדי: הסטודנט והשיעור חייבים להשתייך לאותו מוסד
+    if (lesson.school_id !== profile.school_id) {
+      return NextResponse.json({ error: 'חריגת הרשאה מוסדית' }, { status: 403 });
+    }
+
+    // בדיקת תקינות זמני השיעור
     const now = new Date();
     const lessonStart = new Date(lesson.scheduled_at);
     const lessonEnd = new Date(lessonStart.getTime() + lesson.duration_minutes * 60 * 1000);
@@ -51,7 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'השיעור הסתיים' }, { status: 400 });
     }
 
-    // Validate enrollment
+    // אימות הרשמה לקורס
     const { data: enrollment } = await supabase
       .from('enrollments')
       .select('id')
@@ -63,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'אינך רשום לקורס זה' }, { status: 403 });
     }
 
-    // Check for existing attendance (UNIQUE constraint backup)
+    // בדיקת כפל רישום
     const { data: existing } = await supabase
       .from('attendance')
       .select('id')
@@ -75,7 +80,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'כבר נרשמת לשיעור זה' }, { status: 409 });
     }
 
-    // Server-side GPS validation and distance calculation
+    // אימות GPS
     let distanceMeters: number | null = null;
     if (lesson.location_lat != null && lesson.location_lng != null) {
       distanceMeters = haversineDistance(
@@ -96,16 +101,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Determine status (present = within first 15 mins, late = after)
     const minutesLate = (now.getTime() - lessonStart.getTime()) / 60000;
     const attendanceStatus = minutesLate <= 15 ? 'present' : 'late';
 
-    // Insert attendance record
+    // 4. הכנסת רשומת הנוכחות עם ה-school_id של פדרמן
     const { data: attendance, error: insertError } = await supabase
       .from('attendance')
       .insert({
         lesson_id: lessonId,
         student_id: user.id,
+        school_id: lesson.school_id, // שמירת הזהות המוסדית ברשומה
         checked_in_at: now.toISOString(),
         latitude,
         longitude,

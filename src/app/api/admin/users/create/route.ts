@@ -3,7 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify caller is secretariat
+    // 1. אימות שהמבצע הוא אכן איש מזכירות
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -21,15 +21,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 });
     }
 
-    const { fullName, email, role, studentId, password } = await request.json();
+    // 2. קבלת הנתונים, כולל ה-schoolId החדש
+    const { fullName, email, role, studentId, password, schoolId } = await request.json();
 
-    if (!fullName || !email || !role || !password) {
-      return NextResponse.json({ error: 'נתונים חסרים' }, { status: 400 });
+    if (!fullName || !email || !role || !password || !schoolId) {
+      return NextResponse.json({ error: 'נתונים חסרים, כולל מזהה מוסד' }, { status: 400 });
     }
 
     const adminClient = await createAdminClient();
 
-    // Create user via Supabase Admin API
+    // 3. יצירת המשתמש ב-Auth עם הצמדת ה-school_id למטא-דאטה
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
         role,
         status: 'active',
         student_id: studentId ?? null,
+        school_id: schoolId, // שמירה בזהות המשתמש
       },
     });
 
@@ -46,9 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: createError.message }, { status: 400 });
     }
 
-    // Update profile (trigger creates it, but we need to ensure all fields are set)
+    // 4. עדכון/יצירת הפרופיל עם השיוך המוסדי הסופי
     if (newUser.user) {
-      await adminClient
+      const { error: upsertError } = await adminClient
         .from('profiles')
         .upsert({
           id: newUser.user.id,
@@ -57,7 +59,12 @@ export async function POST(request: NextRequest) {
           role,
           status: 'active',
           student_id: studentId ?? null,
+          school_id: schoolId, // השיוך הקריטי ב-Database
         });
+
+      if (upsertError) {
+        return NextResponse.json({ error: 'שגיאה בעדכון הפרופיל: ' + upsertError.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true, userId: newUser.user?.id });
