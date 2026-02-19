@@ -27,10 +27,11 @@ export interface Course {
   name: string;
   code: string;
   lecturer_id: string | null;
-  max_students: number;
+  max_students?: number; // אופציונלי – לא נשלח ב-insert/update
   created_at: string;
   // Joined fields
   semesters?: Semester;
+  enrolled_count?: number; // מחושב מטבלת enrollments
   profiles?: Profile;
 }
 

@@ -16,11 +16,21 @@ export default function CoursesPage() {
 
   const fetchCourses = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data: coursesData } = await supabase
       .from('courses')
       .select('*, semesters(name, is_active), profiles(full_name)')
       .order('created_at', { ascending: false });
-    setCourses(data ?? []);
+
+    const coursesWithEnrolled = await Promise.all(
+      (coursesData ?? []).map(async (course) => {
+        const { count } = await supabase
+          .from('enrollments')
+          .select('*', { count: 'exact', head: true })
+          .eq('course_id', course.id);
+        return { ...course, enrolled_count: count ?? 0 };
+      })
+    );
+    setCourses(coursesWithEnrolled);
     setLoading(false);
   }, []);
 
@@ -70,7 +80,7 @@ export default function CoursesPage() {
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
-                      {course.semesters?.name} · מרצה: {course.profiles?.full_name ?? 'לא שויך'} · {course.max_students} מקומות
+                      {course.semesters?.name} · מרצה: {course.profiles?.full_name ?? 'לא שויך'} · {course.enrolled_count ?? 0} סטודנטים רשומים
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

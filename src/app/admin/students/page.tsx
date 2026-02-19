@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Trash2, GraduationCap, Search } from 'lucide-react';
+import { Trash2, GraduationCap, Search, Pencil } from 'lucide-react';
 import UserCreateModal from '@/components/secretariat/UserCreateModal';
+import UserEditModal from '@/components/secretariat/UserEditModal';
 import CsvUploadModal from '@/components/secretariat/CsvUploadModal';
 import type { Profile } from '@/lib/supabase/types';
 
@@ -35,6 +36,25 @@ export default function StudentsPage() {
   const [filtered, setFiltered] = useState<Profile[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [editUser, setEditUser] = useState<Profile | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  useEffect(() => {
+    async function checkAdmin() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const metaRole = user.user_metadata?.role as string | undefined;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat');
+    }
+    checkAdmin();
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     const supabase = createClient();
@@ -75,13 +95,14 @@ export default function StudentsPage() {
 
   async function handleToggleStatus(user: Profile) {
     const newStatus = user.status === 'active' ? 'suspended' : 'active';
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ status: newStatus })
-      .eq('id', user.id);
-    if (error) {
-      toast.error('שגיאה בעדכון סטטוס');
+    const res = await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, status: newStatus }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error('שגיאה בעדכון סטטוס: ' + (data.error ?? ''));
     } else {
       toast.success(newStatus === 'active' ? 'המשתמש הופעל' : 'המשתמש הושהה');
       fetchUsers();
@@ -98,7 +119,6 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
@@ -131,7 +151,9 @@ export default function StudentsPage() {
                     <th className="p-3 text-right font-medium">מספר סטודנט</th>
                     <th className="p-3 text-right font-medium">תפקיד</th>
                     <th className="p-3 text-right font-medium">סטטוס</th>
-                    <th className="p-3 text-right font-medium">פעולות</th>
+                    {isAdmin && (
+                      <th className="p-3 text-right font-medium">פעולות</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -150,26 +172,40 @@ export default function StudentsPage() {
                           {STATUS_LABELS[user.status]}
                         </Badge>
                       </td>
-                      <td className="p-3">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleStatus(user)}
-                            className="text-xs"
-                          >
-                            {user.status === 'active' ? 'השהה' : 'הפעל'}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(user.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="p-3">
+                          <div className="flex gap-1 items-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditUser(user);
+                                setEditModalOpen(true);
+                              }}
+                              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                              title="עריכה"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(user)}
+                              className="text-xs"
+                            >
+                              {user.status === 'active' ? 'השהה' : 'הפעל'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(user.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -178,6 +214,13 @@ export default function StudentsPage() {
           )}
         </CardContent>
       </Card>
+
+      <UserEditModal
+        user={editUser}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onSuccess={fetchUsers}
+      />
     </div>
   );
 }

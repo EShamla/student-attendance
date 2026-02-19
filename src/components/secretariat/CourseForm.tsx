@@ -21,16 +21,28 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
   const [loading, setLoading] = useState(false);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [lecturers, setLecturers] = useState<Profile[]>([]);
+  const [enrolledCount, setEnrolledCount] = useState<number | null>(null);
   const [name, setName] = useState(editCourse?.name ?? '');
   const [code, setCode] = useState(editCourse?.code ?? '');
   const [semesterId, setSemesterId] = useState(editCourse?.semester_id ?? '');
   const [lecturerId, setLecturerId] = useState(editCourse?.lecturer_id ?? '');
-  const [maxStudents, setMaxStudents] = useState(editCourse?.max_students?.toString() ?? '40');
 
   useEffect(() => {
     if (!open) return;
     const supabase = createClient();
-    
+
+    async function fetchEnrolledCount() {
+      if (!editCourse?.id) {
+        setEnrolledCount(0); // קורס חדש – אין רשומים
+        return;
+      }
+      const { count, error } = await supabase
+        .from('enrollments')
+        .select('*', { count: 'exact', head: true })
+        .eq('course_id', editCourse.id);
+      if (!error) setEnrolledCount(count ?? 0);
+    }
+
     async function fetchData() {
       // 1. קבלת המוסד של המשתמש המחובר לסינון הרשימות
       const { data: { user } } = await supabase.auth.getUser();
@@ -39,6 +51,8 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
         .select('school_id')
         .eq('id', user?.id)
         .single();
+
+      await fetchEnrolledCount();
 
       if (profile?.school_id) {
         const [sems, lects] = await Promise.all([
@@ -55,14 +69,14 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
             .eq('status', 'active')
             .order('full_name'),
         ]);
-        
+
         setSemesters(sems.data ?? []);
         setLecturers(lects.data ?? []);
       }
     }
 
     fetchData();
-  }, [open]);
+  }, [open, editCourse?.id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,12 +94,11 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
 
       if (!profile?.school_id) throw new Error('לא נמצא שיוך מוסדי');
 
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         name,
         code,
         semester_id: semesterId,
         lecturer_id: lecturerId || null,
-        max_students: parseInt(maxStudents),
         school_id: profile.school_id // הזרקת המוסד לכל קורס חדש
       };
 
@@ -166,14 +179,13 @@ export default function CourseForm({ onSuccess, editCourse }: CourseFormProps) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>מספר מקסימלי של סטודנטים</Label>
+            <Label>כמות הסטודנטים הרשומים</Label>
             <Input
-              type="number"
-              value={maxStudents}
-              onChange={(e) => setMaxStudents(e.target.value)}
-              min="1"
-              max="500"
+              value={enrolledCount !== null ? enrolledCount : 'טוען...'}
+              readOnly
+              disabled
               dir="ltr"
+              className="bg-muted"
             />
           </div>
           <div className="flex gap-3 justify-end pt-2">

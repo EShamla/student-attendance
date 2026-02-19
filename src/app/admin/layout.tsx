@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import SecretariatSidebar from '@/components/secretariat/SecretariatSidebar';
 
-export default async function SecretariatLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -12,13 +12,15 @@ export default async function SecretariatLayout({
 
   if (!user) redirect('/login');
 
+  const metaRole = user.user_metadata?.role as string | undefined;
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, status, full_name')
     .eq('id', user.id)
     .single();
 
-  if (!profile || profile.role !== 'secretariat' || profile.status !== 'active') {
+  const isAdmin = metaRole === 'admin' || profile?.role === 'secretariat';
+  if (!profile || !isAdmin || profile.status !== 'active') {
     redirect('/login');
   }
 

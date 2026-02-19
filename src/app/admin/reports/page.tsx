@@ -53,7 +53,6 @@ export default function ReportsPage() {
     if (selectedLesson && selectedLesson !== 'all') {
       query = query.eq('lesson_id', selectedLesson);
     } else {
-      // Filter by course via lessons
       const lessonIds = lessons.map((l) => l.id);
       if (lessonIds.length > 0) {
         query = query.in('lesson_id', lessonIds);
@@ -99,7 +98,6 @@ export default function ReportsPage() {
         <h1 className="text-2xl font-bold text-gray-900">דוחות נוכחות</h1>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader><CardTitle>סינון</CardTitle></CardHeader>
         <CardContent>
@@ -147,10 +145,8 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Results */}
       {attendance.length > 0 && (
         <>
-          {/* Summary */}
           <div className="grid grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-6 text-center">
@@ -172,7 +168,6 @@ export default function ReportsPage() {
             </Card>
           </div>
 
-          {/* Export buttons */}
           <div className="flex gap-3">
             <Button onClick={handleExportExcel} className="bg-green-600 hover:bg-green-700">
               <FileSpreadsheet className="ml-2 h-4 w-4" />
@@ -184,7 +179,6 @@ export default function ReportsPage() {
             </Button>
           </div>
 
-          {/* Table */}
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">

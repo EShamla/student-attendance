@@ -23,6 +23,8 @@ export default function HomePage() {
 
       if (status !== 'active') {
         router.push('/pending');
+      } else if (role === 'admin' || role === 'secretariat') {
+        router.push('/admin/dashboard');
       } else {
         router.push(`/${role || 'student'}`);
       }

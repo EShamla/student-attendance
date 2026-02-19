@@ -20,7 +20,7 @@ Hebrew UI, RTL layout, three roles: Secretariat, Lecturer, Student.
 6. **Icons**: Lucide icons flip correctly with RTL when using `dir="rtl"` on parent
 
 ## Role System
-- `secretariat` → full admin, desktop-first UI, sidebar layout
+- `admin` / `secretariat` → full admin, desktop-first UI, sidebar layout (routes under `/admin`)
 - `lecturer` → view-only, sees attendance for their courses
 - `student` → mobile-first, GPS check-in
 
@@ -42,7 +42,7 @@ Hebrew UI, RTL layout, three roles: Secretariat, Lecturer, Student.
 - Client error: "אינך נמצא בטווח הכיתה (50 מטר)"
 
 ## File Structure Conventions
-- Route groups: `(auth)`, `(student)`, `(lecturer)`, `(secretariat)`
+- Route groups: `(auth)`, `(student)`, `(lecturer)`, admin routes under `src/app/admin/`
 - Shared UI components: `src/components/ui/` (shadcn)
 - Role-specific components: `src/components/student/`, `src/components/lecturer/`, `src/components/secretariat/`
 - Hooks: `src/hooks/`

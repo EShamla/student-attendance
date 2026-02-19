@@ -42,16 +42,18 @@ export async function proxy(request: NextRequest) {
         .eq('id', user.id)
         .single();
 
+      const metaRole = user.user_metadata?.role as string | undefined;
+      const effectiveRole = profile?.role ?? metaRole;
       if (profile?.status === 'pending') {
         return NextResponse.redirect(new URL('/pending', request.url));
       }
-      if (profile?.role === 'secretariat') {
-        return NextResponse.redirect(new URL('/secretariat/dashboard', request.url));
+      if (effectiveRole === 'secretariat' || effectiveRole === 'admin') {
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
       }
-      if (profile?.role === 'lecturer') {
+      if (effectiveRole === 'lecturer') {
         return NextResponse.redirect(new URL('/lecturer/dashboard', request.url));
       }
-      if (profile?.role === 'student') {
+      if (effectiveRole === 'student') {
         return NextResponse.redirect(new URL('/student/dashboard', request.url));
       }
     }
@@ -76,7 +78,7 @@ export async function proxy(request: NextRequest) {
     .single();
 
   // Pending users → redirect to pending page
-  if (!profile || profile.status === 'pending' || !profile.role) {
+  if (!profile || profile.status === 'pending' || (!profile.role && !user.user_metadata?.role)) {
     if (!pathname.startsWith('/pending')) {
       return NextResponse.redirect(new URL('/pending', request.url));
     }
@@ -89,7 +91,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=suspended', request.url));
   }
 
-  const role = profile.role as string;
+  const role = (profile.role ?? user.user_metadata?.role) as string;
 
   // Role-based route guards
   if (pathname.startsWith('/student') && role !== 'student') {
@@ -98,12 +100,16 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/lecturer') && role !== 'lecturer') {
     return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
   }
-  if (pathname.startsWith('/secretariat') && role !== 'secretariat') {
-    return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
+  if (pathname.startsWith('/admin')) {
+    const isAdmin = role === 'admin' || role === 'secretariat';
+    if (!isAdmin) return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
   }
 
   // Root redirect
   if (pathname === '/') {
+    if (role === 'admin' || role === 'secretariat') {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
     return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
   }
 

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, BookOpen, Calendar, GraduationCap } from 'lucide-react';
 
-export default async function SecretariatDashboard() {
+export default async function AdminDashboard() {
   const supabase = await createClient();
 
   const [

@@ -18,13 +18,13 @@ import {
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/secretariat/dashboard', label: 'דף הבית', icon: LayoutDashboard },
-  { href: '/secretariat/semesters', label: 'סמסטרים', icon: Calendar },
-  { href: '/secretariat/courses', label: 'קורסים', icon: BookOpen },
-  { href: '/secretariat/lessons', label: 'שיעורים', icon: School },
-  { href: '/secretariat/students', label: 'סטודנטים', icon: GraduationCap },
-  { href: '/secretariat/approvals', label: 'אישורים', icon: UserCheck },
-  { href: '/secretariat/reports', label: 'דוחות', icon: BarChart3 },
+  { href: '/admin/dashboard', label: 'דף הבית', icon: LayoutDashboard },
+  { href: '/admin/semesters', label: 'סמסטרים', icon: Calendar },
+  { href: '/admin/courses', label: 'קורסים', icon: BookOpen },
+  { href: '/admin/lessons', label: 'שיעורים', icon: School },
+  { href: '/admin/students', label: 'משתמשים', icon: GraduationCap },
+  { href: '/admin/approvals', label: 'אישורים', icon: UserCheck },
+  { href: '/admin/reports', label: 'דוחות', icon: BarChart3 },
 ];
 
 export default function SecretariatSidebar({ userName }: { userName: string }) {

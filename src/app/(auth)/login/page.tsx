@@ -42,11 +42,13 @@ export default function LoginPage() {
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.status === 'pending' || !profile.role) {
+    const metaRole = user.user_metadata?.role as string | undefined;
+    const effectiveRole = profile?.role ?? metaRole;
+    if (!profile || profile.status === 'pending' || !effectiveRole) {
       router.push('/pending');
-    } else if (profile.role === 'secretariat') {
-      router.push('/secretariat/dashboard');
-    } else if (profile.role === 'lecturer') {
+    } else if (effectiveRole === 'secretariat' || effectiveRole === 'admin') {
+      router.push('/admin/dashboard');
+    } else if (effectiveRole === 'lecturer') {
       router.push('/lecturer/dashboard');
     } else {
       router.push('/student/dashboard');
