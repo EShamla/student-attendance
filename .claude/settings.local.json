@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(powershell -Command \"robocopy ''C:\\\\Users\\\\chaml\\\\student-attendance-tmp'' ''C:\\\\Users\\\\chaml\\\\student-attendance'' /E /MOVE; Write-Host ''Done''\")",
+      "Bash(powershell -Command:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init --defaults --yes)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(dir:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}
