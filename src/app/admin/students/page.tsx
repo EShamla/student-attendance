@@ -20,6 +20,14 @@ const ROLE_LABELS: Record<string, string> = {
   secretariat: 'מזכירות',
 };
 
+// הוספנו מילון צבעים חכם לכל תפקיד
+const ROLE_STYLES: Record<string, string> = {
+  admin: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-transparent',
+  lecturer: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-transparent',
+  student: 'bg-sky-100 text-sky-800 hover:bg-sky-200 border-transparent',
+  secretariat: 'bg-pink-100 text-pink-800 hover:bg-pink-200 border-transparent',
+};
+
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
   pending: 'bg-amber-100 text-amber-700',
@@ -52,7 +60,6 @@ export default function UsersPage() {
         .select('role')
         .eq('id', user.id)
         .single();
-      // הוספנו as string כדי לעקוף את שגיאת ה-TypeScript
       setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat' || (profile?.role as string) === 'admin');
     }
     checkAdmin();
@@ -162,15 +169,13 @@ export default function UsersPage() {
                       <td className="p-3 font-medium">{user.full_name || '—'}</td>
                       <td className="p-3 text-gray-600" dir="ltr">{user.email}</td>
                       <td className="p-3">
-                        {/* הוספנו as string כדי לעקוף את שגיאת ה-TypeScript */}
-                        {(user.role as string) === 'admin' ? (
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-transparent">
-                            מנהל
+                        {/* שימוש במילון הצבעים החדש */}
+                        {user.role ? (
+                          <Badge variant="secondary" className={ROLE_STYLES[user.role as string] || "bg-gray-100 text-gray-800 border-transparent"}>
+                            {ROLE_LABELS[user.role as string] || user.role}
                           </Badge>
                         ) : (
-                          <Badge variant="outline">
-                            {user.role ? ROLE_LABELS[user.role] : 'לא הוגדר'}
-                          </Badge>
+                          <Badge variant="outline">לא הוגדר</Badge>
                         )}
                       </td>
                       <td className="p-3">
