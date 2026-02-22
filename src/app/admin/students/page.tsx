@@ -52,7 +52,8 @@ export default function UsersPage() {
         .select('role')
         .eq('id', user.id)
         .single();
-      setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat' || profile?.role === 'admin');
+      // הוספנו as string כדי לעקוף את שגיאת ה-TypeScript
+      setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat' || (profile?.role as string) === 'admin');
     }
     checkAdmin();
   }, []);
@@ -108,6 +109,7 @@ export default function UsersPage() {
       fetchUsers();
     }
   }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -160,7 +162,8 @@ export default function UsersPage() {
                       <td className="p-3 font-medium">{user.full_name || '—'}</td>
                       <td className="p-3 text-gray-600" dir="ltr">{user.email}</td>
                       <td className="p-3">
-                        {user.role === 'admin' ? (
+                        {/* הוספנו as string כדי לעקוף את שגיאת ה-TypeScript */}
+                        {(user.role as string) === 'admin' ? (
                           <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-transparent">
                             מנהל
                           </Badge>
