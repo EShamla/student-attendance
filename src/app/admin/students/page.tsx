@@ -14,6 +14,7 @@ import CsvUploadModal from '@/components/secretariat/CsvUploadModal';
 import type { Profile } from '@/lib/supabase/types';
 
 const ROLE_LABELS: Record<string, string> = {
+  admin: 'מנהל',
   student: 'סטודנט',
   lecturer: 'מרצה',
   secretariat: 'מזכירות',
@@ -31,7 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
   suspended: 'מושהה',
 };
 
-export default function StudentsPage() {
+export default function UsersPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [filtered, setFiltered] = useState<Profile[]>([]);
   const [search, setSearch] = useState('');
@@ -51,7 +52,7 @@ export default function StudentsPage() {
         .select('role')
         .eq('id', user.id)
         .single();
-      setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat');
+      setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat' || profile?.role === 'admin');
     }
     checkAdmin();
   }, []);
@@ -74,9 +75,8 @@ export default function StudentsPage() {
     setFiltered(
       users.filter(
         (u) =>
-          u.full_name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q) ||
-          (u.student_id ?? '').includes(q)
+          u.full_name?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q)
       )
     );
   }, [search, users]);
@@ -122,7 +122,7 @@ export default function StudentsPage() {
       <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
-          placeholder="חיפוש לפי שם, אימייל, מספר סטודנט..."
+          placeholder="חיפוש לפי שם או אימייל..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pr-10"
@@ -148,7 +148,6 @@ export default function StudentsPage() {
                   <tr className="border-b bg-gray-50">
                     <th className="p-3 text-right font-medium">שם מלא</th>
                     <th className="p-3 text-right font-medium">אימייל</th>
-                    <th className="p-3 text-right font-medium">מספר סטודנט</th>
                     <th className="p-3 text-right font-medium">תפקיד</th>
                     <th className="p-3 text-right font-medium">סטטוס</th>
                     {isAdmin && (
@@ -161,11 +160,16 @@ export default function StudentsPage() {
                     <tr key={user.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{user.full_name || '—'}</td>
                       <td className="p-3 text-gray-600" dir="ltr">{user.email}</td>
-                      <td className="p-3">{user.student_id || '—'}</td>
                       <td className="p-3">
-                        <Badge variant="outline">
-                          {user.role ? ROLE_LABELS[user.role] : 'לא הוגדר'}
-                        </Badge>
+                        {user.role === 'admin' ? (
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-transparent">
+                            מנהל
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            {user.role ? ROLE_LABELS[user.role] : 'לא הוגדר'}
+                          </Badge>
+                        )}
                       </td>
                       <td className="p-3">
                         <Badge className={`${STATUS_STYLES[user.status]} hover:${STATUS_STYLES[user.status]}`}>
