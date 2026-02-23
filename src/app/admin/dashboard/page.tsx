@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, BookOpen, Calendar, GraduationCap } from 'lucide-react';
@@ -26,10 +27,10 @@ export default async function AdminDashboard() {
   ]);
 
   const stats = [
-    { label: 'סטודנטים פעילים', value: studentsCount ?? 0, icon: GraduationCap, color: 'text-blue-600 bg-blue-50' },
-    { label: 'קורסים', value: coursesCount ?? 0, icon: BookOpen, color: 'text-green-600 bg-green-50' },
-    { label: 'שיעורים', value: lessonsCount ?? 0, icon: Calendar, color: 'text-purple-600 bg-purple-50' },
-    { label: 'ממתינים לאישור', value: pendingCount ?? 0, icon: Users, color: 'text-amber-600 bg-amber-50' },
+    { label: 'סטודנטים פעילים', value: studentsCount ?? 0, icon: GraduationCap, color: 'text-blue-600 bg-blue-50', href: '/admin/students' },
+    { label: 'קורסים', value: coursesCount ?? 0, icon: BookOpen, color: 'text-green-600 bg-green-50', href: '/admin/courses' },
+    { label: 'שיעורים', value: lessonsCount ?? 0, icon: Calendar, color: 'text-purple-600 bg-purple-50', href: '/admin/lessons' },
+    { label: 'ממתינים לאישור', value: pendingCount ?? 0, icon: Users, color: 'text-amber-600 bg-amber-50', href: '/admin/approvals' },
   ];
 
   return (
@@ -46,19 +47,21 @@ export default async function AdminDashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
-                    <p className="text-3xl font-bold mt-1">{stat.value}</p>
+            <Link key={stat.label} href={stat.href}>
+              <Card className="hover:shadow-md hover:border-gray-300 transition-all cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">{stat.label}</p>
+                      <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                    </div>
+                    <div className={`p-3 rounded-full ${stat.color}`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
                   </div>
-                  <div className={`p-3 rounded-full ${stat.color}`}>
-                    <Icon className="h-6 w-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>

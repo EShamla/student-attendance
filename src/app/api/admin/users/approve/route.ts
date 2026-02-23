@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
+    // אימות זהות המאשר (חייב להיות admin)
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -26,8 +27,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'נתונים חסרים' }, { status: 400 });
     }
 
+    // שימוש ב-adminClient כדי לעדכן פרופיל של משתמש אחר (עוקף RLS)
+    const adminClient = await createAdminClient();
+
     if (action === 'approve') {
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('profiles')
         .update({ role: 'student', status: 'active' })
         .eq('id', userId);
@@ -36,11 +40,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
+      // עדכון metadata ב-Auth כדי שה-JWT יתרענן נכון
+      await adminClient.auth.admin.updateUserById(userId, {
+        user_metadata: { role: 'student', status: 'active' },
+      });
+
       return NextResponse.json({ success: true, message: 'המשתמש אושר' });
     }
 
     if (action === 'reject') {
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('profiles')
         .update({ status: 'suspended' })
         .eq('id', userId);
@@ -48,6 +57,10 @@ export async function POST(request: NextRequest) {
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
+
+      await adminClient.auth.admin.updateUserById(userId, {
+        user_metadata: { status: 'suspended' },
+      });
 
       return NextResponse.json({ success: true, message: 'המשתמש נדחה' });
     }
