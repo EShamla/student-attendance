@@ -11,25 +11,9 @@ import { Trash2, GraduationCap, Search, Pencil } from 'lucide-react';
 import UserCreateModal from '@/components/secretariat/UserCreateModal';
 import UserEditModal from '@/components/secretariat/UserEditModal';
 import CsvUploadModal from '@/components/secretariat/CsvUploadModal';
+import BulkAssignModal from '@/components/secretariat/BulkAssignModal';
 import type { Profile } from '@/lib/supabase/types';
-
-const ROLE_LABELS: Record<string, string> = {
-  student: 'סטודנט',
-  lecturer: 'מרצה',
-  secretariat: 'מזכירות',
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-green-100 text-green-700',
-  pending: 'bg-amber-100 text-amber-700',
-  suspended: 'bg-red-100 text-red-700',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  active: 'פעיל',
-  pending: 'ממתין',
-  suspended: 'מושהה',
-};
+import { ROLE_LABELS, ROLE_STYLES, STATUS_LABELS, STATUS_STYLES } from '@/lib/constants';
 
 export default function StudentsPage() {
   const [users, setUsers] = useState<Profile[]>([]);
@@ -39,19 +23,20 @@ export default function StudentsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [editUser, setEditUser] = useState<Profile | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  // ── Multi-select state ─────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function checkAdmin() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const metaRole = user.user_metadata?.role as string | undefined;
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
-      setIsAdmin(metaRole === 'admin' || profile?.role === 'secretariat');
+      setIsAdmin(profile?.role === 'admin');
     }
     checkAdmin();
   }, []);
@@ -79,7 +64,30 @@ export default function StudentsPage() {
           (u.student_id ?? '').includes(q)
       )
     );
+    // אפס בחירה בעת חיפוש
+    setSelectedIds(new Set());
   }, [search, users]);
+
+  // ── Checkbox helpers ────────────────────────────────────────────────────────
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((u) => u.id)));
+    }
+  }
+
+  const selectedStudents = filtered
+    .filter((u) => selectedIds.has(u.id))
+    .map((u) => ({ id: u.id, full_name: u.full_name }));
 
   async function handleDelete(id: string) {
     if (!confirm('למחוק משתמש זה? פעולה זו אינה הפיכה.')) return;
@@ -109,11 +117,17 @@ export default function StudentsPage() {
     }
   }
 
+  const allChecked = filtered.length > 0 && selectedIds.size === filtered.length;
+  const someChecked = selectedIds.size > 0 && selectedIds.size < filtered.length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">משתמשים</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {isAdmin && (
+            <BulkAssignModal selectedStudents={selectedStudents} onSuccess={fetchUsers} />
+          )}
           <CsvUploadModal onSuccess={fetchUsers} />
           <UserCreateModal onSuccess={fetchUsers} />
         </div>
@@ -128,6 +142,15 @@ export default function StudentsPage() {
           className="pr-10"
         />
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 text-sm text-indigo-800 flex items-center justify-between">
+          <span>{selectedIds.size} משתמשים נבחרו</span>
+          <button onClick={() => setSelectedIds(new Set())} className="text-indigo-600 hover:underline text-xs">
+            נקה בחירה
+          </button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -146,6 +169,18 @@ export default function StudentsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
+                    {isAdmin && (
+                      <th className="p-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={allChecked}
+                          ref={(el) => { if (el) el.indeterminate = someChecked; }}
+                          onChange={toggleSelectAll}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                          title="בחר הכל"
+                        />
+                      </th>
+                    )}
                     <th className="p-3 text-right font-medium">שם מלא</th>
                     <th className="p-3 text-right font-medium">אימייל</th>
                     <th className="p-3 text-right font-medium">מספר סטודנט</th>
@@ -158,17 +193,30 @@ export default function StudentsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-gray-50">
+                    <tr
+                      key={user.id}
+                      className={`border-b hover:bg-gray-50 ${selectedIds.has(user.id) ? 'bg-indigo-50' : ''}`}
+                    >
+                      {isAdmin && (
+                        <td className="p-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(user.id)}
+                            onChange={() => toggleSelect(user.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                          />
+                        </td>
+                      )}
                       <td className="p-3 font-medium">{user.full_name || '—'}</td>
                       <td className="p-3 text-gray-600" dir="ltr">{user.email}</td>
                       <td className="p-3">{user.student_id || '—'}</td>
                       <td className="p-3">
-                        <Badge variant="outline">
-                          {user.role ? ROLE_LABELS[user.role] : 'לא הוגדר'}
+                        <Badge className={user.role ? ROLE_STYLES[user.role] : ''} variant={user.role ? 'default' : 'outline'}>
+                          {user.role ? (ROLE_LABELS[user.role] ?? user.role) : 'לא הוגדר'}
                         </Badge>
                       </td>
                       <td className="p-3">
-                        <Badge className={`${STATUS_STYLES[user.status]} hover:${STATUS_STYLES[user.status]}`}>
+                        <Badge className={STATUS_STYLES[user.status]}>
                           {STATUS_LABELS[user.status]}
                         </Badge>
                       </td>
@@ -178,10 +226,7 @@ export default function StudentsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                setEditUser(user);
-                                setEditModalOpen(true);
-                              }}
+                              onClick={() => { setEditUser(user); setEditModalOpen(true); }}
                               className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                               title="עריכה"
                             >

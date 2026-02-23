@@ -39,15 +39,22 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      toast.error('שגיאה בהרשמה: ' + error.message);
+      // משתמש כבר קיים
+      if (error.message?.toLowerCase().includes('already registered') || error.message?.includes('already been registered')) {
+        toast.error('כתובת המייל הזו כבר רשומה במערכת. נסה להתחבר או לאפס סיסמה.');
+      } else {
+        toast.error('שגיאה בהרשמה: ' + error.message);
+      }
       setLoading(false);
       return;
     }
 
-    // Update profile with student_id (trigger creates it, then we patch it)
-    // The trigger handles full_name, role, status — we just need student_id
-    toast.success('ההרשמה הצליחה! ממתין לאישור המזכירות');
-    router.push('/pending');
+    // ניתוק מיידי — המשתמש לא אמור להיות מחובר עד שהמזכירות תאשר
+    await supabase.auth.signOut();
+
+    toast.success('הבקשה נקלטה בהצלחה!');
+    // העבר למסך המתנה עם פרמטר שמציין שזו הרשמה חדשה
+    router.push('/pending?registered=true');
   }
 
   return (
@@ -65,7 +72,7 @@ export default function RegisterPage() {
           <CardHeader>
             <CardTitle>הרשמה</CardTitle>
             <CardDescription>
-              לאחר ההרשמה, בקשתך תועבר לאישור המזכירות
+              לאחר ההרשמה, בקשתך תועבר לאישור המזכירות. תוכל להתחבר רק לאחר האישור.
             </CardDescription>
           </CardHeader>
           <CardContent>

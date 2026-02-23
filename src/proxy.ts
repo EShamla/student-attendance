@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes
-  const publicPaths = ['/login', '/register', '/pending'];
+  const publicPaths = ['/login', '/register', '/pending', '/reset-password'];
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     // If already logged in and visiting login, redirect to appropriate dashboard
     if (user && pathname === '/login') {
@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest) {
       if (profile?.status === 'pending') {
         return NextResponse.redirect(new URL('/pending', request.url));
       }
-      if (effectiveRole === 'secretariat' || effectiveRole === 'admin') {
+      if (effectiveRole === 'admin') {
         return NextResponse.redirect(new URL('/admin/dashboard', request.url));
       }
       if (effectiveRole === 'lecturer') {
@@ -101,13 +101,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
   }
   if (pathname.startsWith('/admin')) {
-    const isAdmin = role === 'admin' || role === 'secretariat';
-    if (!isAdmin) return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
+    if (role !== 'admin') return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));
   }
 
   // Root redirect
   if (pathname === '/') {
-    if (role === 'admin' || role === 'secretariat') {
+    if (role === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url));
     }
     return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url));

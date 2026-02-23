@@ -12,6 +12,7 @@ interface CsvUserRow {
 interface ImportResult {
   email: string;
   success: boolean;
+  status?: 'already_exists';
   error?: string;
 }
 
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'secretariat') {
+    if (!profile || profile.role !== 'admin') {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 });
     }
 
@@ -73,7 +74,16 @@ export async function POST(request: NextRequest) {
       });
 
       if (error) {
-        results.push({ email: row.email, success: false, error: error.message });
+        // משתמש כבר קיים (Supabase מחזיר שגיאת "already registered")
+        const isExisting =
+          error.message?.toLowerCase().includes('already registered') ||
+          error.message?.toLowerCase().includes('already been registered') ||
+          error.message?.includes('23505');
+        if (isExisting) {
+          results.push({ email: row.email, success: false, status: 'already_exists', error: 'משתמש כבר קיים' });
+        } else {
+          results.push({ email: row.email, success: false, error: error.message });
+        }
         continue;
       }
 

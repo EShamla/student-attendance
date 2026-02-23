@@ -18,7 +18,7 @@ import type { Profile, UserRole, UserStatus } from '@/lib/supabase/types';
 const ROLE_LABELS: Record<UserRole, string> = {
   student: 'סטודנט',
   lecturer: 'מרצה',
-  secretariat: 'מזכירות',
+  admin: 'מנהל',
 };
 
 const STATUS_LABELS: Record<UserStatus, string> = {
@@ -117,7 +117,7 @@ export default function UserEditModal({ user, open, onOpenChange, onSuccess }: U
               <SelectContent>
                 <SelectItem value="student">{ROLE_LABELS.student}</SelectItem>
                 <SelectItem value="lecturer">{ROLE_LABELS.lecturer}</SelectItem>
-                <SelectItem value="secretariat">{ROLE_LABELS.secretariat}</SelectItem>
+                <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
               </SelectContent>
             </Select>
           </div>

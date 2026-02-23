@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'secretariat') {
+    if (!profile || profile.role !== 'admin') {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 });
     }
 

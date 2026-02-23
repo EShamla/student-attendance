@@ -115,7 +115,7 @@ export default function UserCreateModal({ onSuccess }: UserCreateModalProps) {
               <SelectContent>
                 <SelectItem value="student">סטודנט</SelectItem>
                 <SelectItem value="lecturer">מרצה</SelectItem>
-                <SelectItem value="secretariat">מזכירות</SelectItem>
+                <SelectItem value="admin">מנהל</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     const metadataRole = (user.user_metadata?.role as string) || profile?.role;
-    const isAdmin = metadataRole === 'admin' || profile?.role === 'secretariat';
+    const isAdmin = profile?.role === 'admin';
 
     if (!isAdmin) {
       return NextResponse.json({ error: 'אין הרשאה לעריכת משתמשים' }, { status: 403 });
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'מזהה משתמש חסר' }, { status: 400 });
     }
 
-    const validRoles: UserRole[] = ['student', 'lecturer', 'secretariat'];
+    const validRoles: UserRole[] = ['student', 'lecturer', 'admin'];
     const validStatuses: UserStatus[] = ['active', 'pending', 'suspended'];
 
     const adminClient = await createAdminClient();

@@ -19,7 +19,7 @@ export default async function AdminLayout({
     .eq('id', user.id)
     .single();
 
-  const isAdmin = metaRole === 'admin' || profile?.role === 'secretariat';
+  const isAdmin = profile?.role === 'admin';
   if (!profile || !isAdmin || profile.status !== 'active') {
     redirect('/login');
   }
