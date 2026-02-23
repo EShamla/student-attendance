@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Clock, LogOut, RefreshCw, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function PendingPage() {
+// ─── הקומפוננטה הפנימית שמשתמשת ב-useSearchParams ─────────────────────────
+function PendingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get('registered') === 'true';
@@ -142,5 +141,14 @@ export default function PendingPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// ─── ה-export הראשי עוטף ב-Suspense (דרישת Next.js 14 ל-useSearchParams) ───
+export default function PendingPage() {
+  return (
+    <Suspense>
+      <PendingContent />
+    </Suspense>
   );
 }
