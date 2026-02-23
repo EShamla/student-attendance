@@ -30,7 +30,7 @@ export default function BulkAssignModal({ selectedStudents, onSuccess }: BulkAss
         .from('courses')
         .select('id, name, code, semesters(name)')
         .order('name');
-      setCourses((data as Course[]) ?? []);
+      setCourses((data as unknown as Course[]) ?? []);
       setLoadingCourses(false);
     }
     fetchCourses();
