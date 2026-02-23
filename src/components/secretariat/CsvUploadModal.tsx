@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 import { Upload, Loader2, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { createClient } from '@/lib/supabase/client'; // וודא שהנתיב ללקוח הסופאבייס נכון
+import { createClient } from '@/lib/supabase/client'; 
 
+// 1. הסרנו את student_id מההגדרות
 interface CsvRow {
   full_name: string;
   email: string;
-  student_id: string;
   role?: string;
 }
 
@@ -30,7 +30,7 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<CsvRow[]>([]);
-  const [fullData, setFullData] = useState<CsvRow[]>([]); // מדינה חדשה לשמירת כל הנתונים
+  const [fullData, setFullData] = useState<CsvRow[]>([]); 
   const [results, setResults] = useState<ImportResult[]>([]);
   const [dragging, setDragging] = useState(false);
   
@@ -41,8 +41,8 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
-        setFullData(result.data); // שומר את כל הסטודנטים
-        setPreview(result.data.slice(0, 5)); // מציג רק 5 לתצוגה מקדימה
+        setFullData(result.data); 
+        setPreview(result.data.slice(0, 5)); 
         setResults([]);
       },
       error: () => toast.error('שגיאה בקריאת הקובץ'),
@@ -73,7 +73,6 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
     setLoading(true);
 
     try {
-      // 1. שליפת ה-school_id של המשתמש המחובר (לירון/אביבה)
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -85,7 +84,6 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
         throw new Error('לא נמצא שיוך מוסדי למשתמש המחובר');
       }
 
-      // 2. הזרקת ה-school_id לכל הסטודנטים לפני השליחה
       const usersWithSchool = fullData.map(user => ({
         ...user,
         school_id: profile.school_id,
@@ -129,7 +127,8 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
         <div className="space-y-4 mt-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
             <p className="font-medium mb-1">פורמט הקובץ הנדרש (כותרות):</p>
-            <code dir="ltr" className="block">full_name,email,student_id,role</code>
+            {/* 2. עדכנו את התצוגה של הכותרות */}
+            <code dir="ltr" className="block">full_name,email,role</code>
             <p className="mt-1 text-xs">המערכת תשייך אוטומטית את הסטודנטים למוסד המחובר</p>
           </div>
 
@@ -159,7 +158,7 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
                     <tr>
                       <th className="p-2 text-right">שם</th>
                       <th className="p-2 text-right">אימייל</th>
-                      <th className="p-2 text-right">מספר סטודנט</th>
+                      {/* 3. מחקנו את העמודה של מספר סטודנט גם כאן */}
                       <th className="p-2 text-right">תפקיד</th>
                     </tr>
                   </thead>
@@ -168,7 +167,6 @@ export default function CsvUploadModal({ onSuccess }: CsvUploadModalProps) {
                       <tr key={i} className="border-t">
                         <td className="p-2">{row.full_name}</td>
                         <td className="p-2 text-gray-600" dir="ltr">{row.email}</td>
-                        <td className="p-2">{row.student_id}</td>
                         <td className="p-2">
                           <Badge variant="outline">{row.role ?? 'student'}</Badge>
                         </td>
