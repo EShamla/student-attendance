@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 
+// 1. מחקנו את student_id מההגדרות
 interface CsvUserRow {
   full_name: string;
   email: string;
-  student_id?: string;
   role?: string;
-  school_id?: string; // השדה החדש ששלחנו מה-Frontend
+  school_id?: string;
 }
 
 interface ImportResult {
@@ -17,7 +17,6 @@ interface ImportResult {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. אימות זהות המזכירות
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -27,11 +26,12 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, school_id') // הוספת שליפת המוסד לביטחון
+      .select('role, school_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'secretariat') {
+    // 2. פתחנו את ההרשאות - עכשיו גם מנהל (admin) וגם מזכירות יכולים לייבא
+    if (!profile || (profile.role !== 'secretariat' && profile.role !== 'admin')) {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 });
     }
 
@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
     const adminClient = await createAdminClient();
     const results: ImportResult[] = [];
 
-    // 2. לולאת ייבוא הסטודנטים
     for (const row of users) {
       if (!row.email || !row.full_name) {
         results.push({ email: row.email ?? '', success: false, error: 'חסרים שדות חובה' });
@@ -56,9 +55,10 @@ export async function POST(request: NextRequest) {
       }
 
       const role = row.role ?? 'student';
+      // יצירת סיסמה זמנית מאובטחת
       const tempPassword = Math.random().toString(36).slice(-10) + 'A1!';
 
-      // יצירת המשתמש ב-Auth עם שיוך מוסדי
+      // יצירת המשתמש במערכת ההזדהות של סופאבייס
       const { data: newUser, error } = await adminClient.auth.admin.createUser({
         email: row.email,
         password: tempPassword,
@@ -67,8 +67,8 @@ export async function POST(request: NextRequest) {
           full_name: row.full_name,
           role,
           status: 'active',
-          student_id: row.student_id ?? null,
-          school_id: profile.school_id, // שימוש במוסד של המזכירה
+          school_id: profile.school_id, 
+          // 3. הוסר student_id
         },
       });
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // 3. יצירת הפרופיל ב-Database עם ה-school_id
+      // יצירת הפרופיל בטבלת Profiles
       if (newUser.user) {
         await adminClient
           .from('profiles')
@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
             email: row.email,
             role,
             status: 'active',
-            student_id: row.student_id ?? null,
-            school_id: profile.school_id, // שיוך קבוע בטבלת הפרופילים
+            school_id: profile.school_id,
+            // 4. הוסר student_id
           });
       }
 
